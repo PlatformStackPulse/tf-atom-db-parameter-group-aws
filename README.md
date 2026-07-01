@@ -3,9 +3,41 @@
 [![CI](https://github.com/PlatformStackPulse/tf-atom-db-parameter-group-aws/actions/workflows/ci.yml/badge.svg)](https://github.com/PlatformStackPulse/tf-atom-db-parameter-group-aws/actions/workflows/ci.yml)
 ![Terraform](https://img.shields.io/badge/terraform-%3E%3D1.6.0-blueviolet)
 
-## Purpose
+A [PlatformStackPulse](https://github.com/PlatformStackPulse) Terraform **atom** that provisions an RDS DB parameter group for customizing database engine configuration, with tf-label naming/tagging built in.
 
-RDS DB parameter group for customizing database engine configuration.
+## Features
+
+- Creates an `aws_db_parameter_group` with a name derived from the [tf-label](https://github.com/PlatformStackPulse/tf-label) `id` (consistent naming and tagging).
+- Arbitrary engine parameters via the `parameters` list, each with an optional `apply_method` (`immediate` or `pending-reboot`).
+- Auto-derived description (`DB parameter group for <id>`) with an override via `description`.
+- `create_before_destroy` lifecycle so parameter-group changes never break dependent DB instances mid-apply.
+- Full `enabled` toggle — set `enabled = false` to create no resources (all outputs become `null`).
+
+## Usage
+
+```hcl
+module "db_parameter_group" {
+  source = "git::https://github.com/PlatformStackPulse/tf-atom-db-parameter-group-aws.git?ref=v1.0.0"
+
+  namespace = "eg"
+  stage     = "prod"
+  name      = "orders"
+
+  family = "postgres16"
+
+  parameters = [
+    {
+      name         = "max_connections"
+      value        = "200"
+      apply_method = "pending-reboot"
+    },
+    {
+      name  = "log_min_duration_statement"
+      value = "500"
+    }
+  ]
+}
+```
 
 ## Module Documentation
 
@@ -68,3 +100,19 @@ RDS DB parameter group for customizing database engine configuration.
 | <a name="output_id"></a> [id](#output\_id) | ID of the DB parameter group |
 | <a name="output_name"></a> [name](#output\_name) | Name of the DB parameter group |
 <!-- END_TF_DOCS -->
+
+## Tests
+
+Unit tests run against a mock AWS provider (no credentials, no real resources) and assert on plan-known values — the tf-label `id`, resource count, and input pass-throughs.
+
+```bash
+# Unit tests (mock provider, offline)
+terraform init -backend=false
+terraform test -test-directory=tests/unit
+
+# Or via the Makefile
+make test-unit
+
+# Integration tests (requires real AWS credentials)
+make test-integration
+```
